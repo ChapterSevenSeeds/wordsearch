@@ -16,7 +16,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "publish": "npm run build & aws s3 sync build s3://wordsearch-hosting-bucket/ --delete & aws cloudfront create-invalidation --distribution-id E3KBRA8YS209AR --paths \"/*\""
   },
   "eslintConfig": {
     "extends": [
