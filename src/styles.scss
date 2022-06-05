@@ -1,0 +1,31 @@
+.main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+$formattedCharsSize: 30px;
+$formattedCharsSpacing: 5px;
+
+.formatted-text-container {
+    margin-top: 30px;
+    text-transform: capitalize;
+    
+    & > div {
+        height: $formattedCharsSize;
+        display: flex;
+        margin-bottom: $formattedCharsSpacing;
+
+        & > div {
+            display: flex;
+            height: $formattedCharsSize;
+            width: $formattedCharsSize;
+            justify-content: center;
+            align-items: center;
+            margin-right: $formattedCharsSpacing;
+
+            border-radius: 100px;
+            border: lightgray solid 1px;
+        }
+    }
+}
