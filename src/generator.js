@@ -14,7 +14,7 @@ const surroundingItemsIndexes = [0, 1, 2, 3, 4, 5, 6, 7];
 
 const _ = require('lodash');
 
-module.exports = function (words, matrixWidth, matrixHeight) {
+export default function generator(words, matrixWidth, matrixHeight) {
     if (words.some(x => x.length > matrixWidth && x.length > matrixHeight)) {
         return [false, []];
     }
