@@ -1,188 +1,83 @@
-const _ = require('lodash');
-
-class PointVector {
-    Row;
-    Column;
-    Direction;
-
-    constructor(row, column, direction) {
-        this.Row = row;
-        this.Column = column;
-        this.Direction = direction;
-    }
-
-    toString() {
-        return `${this.Row},${this.Column},${this.Direction}`;
-    }
-}
-
-class IndexRequirement {
-    Index;
-    Char;
-
-    constructor(index, char) {
-        this.Index = index;
-        this.Char = char;
-    }
-}
-
 const surroundingColumns = [
     -1, 0, 1,
-    -1, 1,
+    -1,    1, // We don't want to check the middle spot twice.
     -1, 0, 1
 ];
 
 const surroundingRows = [
     -1, -1, -1,
-    0, 0,
-    1, 1, 1
+     0,      0, // We don't want to check the middle spot twice.
+     1,  1,  1
 ];
 
-const action = {
+const surroundingItemsIndexes = [0, 1, 2, 3, 4, 5, 6, 7];
 
-    TryReverse: 0,
-    Fail: 1
-}
+const _ = require('lodash');
 
-const directions = {
-    UP_LEFT: 0,
-    UP: 1,
-    UP_RIGHT: 2,
-    LEFT: 3,
-    RIGHT: 4,
-    DOWN_LEFT: 5,
-    DOWN: 6,
-    DOWN_RIGHT: 7
-};
-const directionsByValue = Object.keys(directions).reduce((acc, cur) => Object.assign(acc, { [directions[cur]]: cur }), {});
-const directionReciprocals = {
-    UP_LEFT: directions.DOWN_RIGHT,
-    UP: directions.DOWN,
-    UP_RIGHT: directions.DOWN_LEFT,
-    LEFT: directions.RIGHT,
-    RIGHT: directions.LEFT,
-    DOWN_LEFT: directions.UP_RIGHT,
-    DOWN: directions.UP,
-    DOWN_RIGHT: directions.UP_LEFT
-};
+module.exports = function (words, matrixWidth, matrixHeight) {
+    if (words.some(x => x.length > matrixWidth && x.length > matrixHeight)) {
+        return [false, []];
+    }
 
-const allWords = require("fs").readFileSync('./words.txt').toString().split("\r\n").filter(x => x.length >= 2);
-
-const words = _.sampleSize(allWords, 10);
-const maxWordLength = words.reduce((max, current) => Math.max(max, current.length), 0);
-const matrixSize = maxWordLength + 5;
-
-const wordMatrix = [];
-for (let i = 0; i < matrixSize; ++i) {
-    wordMatrix.push(new Array(matrixSize).fill(''));
-}
-
-const lengthMap = {};
-for (let row = 0; row < matrixSize; ++row) {
-    for (let column = 0; column < matrixSize; ++column) {
-        for (const [directionKey, value] of Object.entries(directions)) {
-            let currentLength = 2;
-            const direction = new PointVector(row, column, value);
-
-            let rowCopy = row + surroundingRows[value];
-            let columnCopy = column + surroundingColumns[value];
-            while (rowCopy >= 0 && rowCopy < matrixSize && columnCopy >= 0 && columnCopy < matrixSize) {
-                if (!(currentLength in lengthMap)) {
-                    lengthMap[currentLength] = {}
-                }
-
-                lengthMap[currentLength][direction.toString()] = [];
-
-                rowCopy += surroundingRows[value];
-                columnCopy += surroundingColumns[value];
-                ++currentLength;
-            }
+    words = words.map(x => x.toUpperCase());
+    const board = [];
+    
+    const coordinates = [];
+    
+    for (let i = 0; i < matrixHeight; ++i) {
+        const row = [];
+        for (let j = 0; j < matrixWidth; ++j) {
+            coordinates.push([i, j]);
+            row.push('');
+        }
+    
+        board.push(row);
+    }
+    
+    const result = placeWord(words, board, coordinates);
+    for (const row of result[1]) {
+        for (let i = 0; i < row.length; ++i) {
+            if (row[i] === '') row[i] = String.fromCharCode(_.random(65, 90));
         }
     }
+
+    return result;
 }
 
-function attemptToPlaceWordOnBoard(board, remainingWords, lengthMap) {
+function placeWord(remainingWords, board, coordinates) {
     if (remainingWords.length === 0) return [true, board];
 
-    let word = remainingWords[0];
-    const possibleStarts = _.shuffle(Object.keys(lengthMap[word.length]));
+    const randomizedCoordinates = _.shuffle(coordinates);
+    const word = remainingWords[0];
+    const boardCopy = _.cloneDeep(board);
 
-    for (const start of possibleStarts) {
-        let tryReverse = false;
-        let failed = false;
+    for (const coord of randomizedCoordinates) {
+        for (const itemIndex of _.shuffle(surroundingItemsIndexes)) {
+            let row = coord[0];
+            let column = coord[1];
 
-        let boardClone, lengthMapClone;
-        while (true) {
-            lengthMapClone = _.clone(lengthMap);
-    
-            let [row, column, directionIndex] = start.split(',').map(Number);
-            let originalRow = row - surroundingRows[directionIndex];
-            let originalColumn = column - surroundingColumns[directionIndex];
-    
-    
-            boardClone = _.cloneDeep(board);
-            for (const index in word) {
-                if (boardClone[row][column] === '') boardClone[row][column] = word[index];
-                else if (boardClone[row][column] !== word[index]) {
-                    if (!tryReverse) {
-                        tryReverse = true;
-                        word = word.split("").reverse().join("");
-                    } else {
-                        failed = true;
-                    }
-
+            let wordSuccess = true;
+            for (const char of word) {
+                if ((board[row]?.[column] !== "" && board[row]?.[column] !== char) || board[row]?.[column] == null) {
+                    wordSuccess = false;
                     break;
                 }
-    
-                // Remove the vectors that start on this point.
-                for (const length in lengthMapClone) {
-                    for (const directionValue of Object.values(directions)) {
-                        delete lengthMapClone[length][`${row},${column},${directionValue}`];
-                    }
-                }
-    
-                row += surroundingRows[directionIndex];
-                column += surroundingColumns[directionIndex];
+
+                board[row][column] = char;
+
+                row += surroundingRows[itemIndex];
+                column += surroundingColumns[itemIndex];
             }
 
-            if (!failed && tryReverse) continue;
-            if (failed) break;
-    
-            // Recalculate the lengths of the rest of the points along the vector where the word was just placed
-            for (const vectorPiece of [[row, column, directionIndex, directionReciprocals[directionsByValue[directionIndex]]], [originalRow, originalColumn, directionReciprocals[directionsByValue[directionIndex]], directionIndex]]) {
-                let [rowCopy, columnCopy, directionIndex, oppositeDirectionIndex] = vectorPiece;
-    
-                while (rowCopy >= 0 && columnCopy >= 0 && rowCopy < matrixSize && columnCopy < matrixSize) {
-                    const pointString = `${rowCopy},${columnCopy},${oppositeDirectionIndex}`;
-                    for (const length in lengthMapClone) {
-                        delete lengthMapClone[length][pointString];
-                    }
-    
-                    let newLength;
-                    if (directionIndex === directions.UP || directionIndex === directions.DOWN) {
-                        newLength = Math.abs(columnCopy - vectorPiece[1]);
-                    } else {
-                        newLength = Math.abs(rowCopy - vectorPiece[0]);
-                    }
-    
-                    if (newLength >= 2) lengthMapClone[newLength][pointString] = []
-    
-                    rowCopy += surroundingRows[directionIndex];
-                    columnCopy += surroundingColumns[directionIndex];
-                }
-            }
+            if (wordSuccess) {
+                const nextWordSuccess = placeWord([...remainingWords].splice(1), board, coordinates);
 
-            break;
+                if (nextWordSuccess[0]) return nextWordSuccess;
+            } else {
+                board = _.cloneDeep(boardCopy);
+            }
         }
-
-        if (failed) continue;
-
-        const nextWordResult = attemptToPlaceWordOnBoard(boardClone, remainingWords.splice(1), lengthMapClone)
-        if (nextWordResult[0]) return nextWordResult;
     }
 
-    return [false, null];
+    return [false, boardCopy];
 }
-
-const result = attemptToPlaceWordOnBoard(wordMatrix, words.sort((a, b) => b.length - a.length), lengthMap);
-console.log(result);
